@@ -1,6 +1,6 @@
 colors = {
-    'logits': '#E27C7C',
-    'pmf': '#D7658B',
-    'selected': '#599E94',
-    'rejected': '#D6D6D6'
+    'logits': (226, 124, 124),
+    'pmf': (215, 101, 139),
+    'selected': (89, 158, 148),
+    'rejected': (214, 214, 214)
 }

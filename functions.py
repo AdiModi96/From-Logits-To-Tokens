@@ -3,7 +3,7 @@ import numpy as np
 
 def convert_logits_to_probabilities(logits: np.ndarray) -> np.ndarray:
     exp_logits = np.exp(logits)
-    return exp_logits / exp_logits.sum()
+    return exp_logits / np.nansum(exp_logits)
 
 
 def apply_repetition_penalty(logits: np.ndarray, frequencies: np.ndarray, repetition_penalty: float) -> np.ndarray:

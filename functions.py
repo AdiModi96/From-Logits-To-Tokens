@@ -29,18 +29,13 @@ def select_top_k(logits: np.ndarray, k: int) -> np.ndarray:
 def select_top_p(logits: np.ndarray, p: float) -> np.ndarray:
     assert p >= 0 and p <= 1, 'The value of cumulative probability should be between 0 & 1'
 
-    new_logits = logits.copy()
+    pmf = convert_logits_to_probabilities(logits)
+    sorted_idxes = np.argsort(pmf)[::-1]
+    sorted_idxes_inv = np.argsort(sorted_idxes)
 
-    probabilities = convert_logits_to_probabilities(logits)
-    sorted_indices = np.argsort(1 - probabilities)
+    sorted_pmf = pmf[sorted_idxes]
+    sorted_logits = logits[sorted_idxes]
+    cumulative_sorted_pmf = np.cumsum(sorted_pmf)
 
-    if probabilities[0] > p:
-        idx = 0
-    else:
-        for idx in range(1, len(sorted_indices) + 1):
-            if probabilities[:idx].sum() > p:
-                break
-
-    new_logits[sorted_indices[idx:]] = np.nan
-
-    return new_logits
+    sorted_logits[cumulative_sorted_pmf > p] = np.nan
+    return sorted_logits[sorted_idxes_inv]

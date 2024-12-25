@@ -8,14 +8,14 @@ import gradio as gr
 with open(os.path.join(pp.datasets_folder_path, 'words.txt')) as file:
     words = file.read().splitlines()
 
-vocab_size = 25
+vocab_size = 30
 
 random.seed(vocab_size)
 vocab = sorted(random.sample(words, vocab_size))
 vocab_frequencies = np.zeros(shape=vocab_size, dtype=np.int16)
 
 np.random.seed(vocab_size)
-original_logits = np.random.normal(0, 0.8, size=vocab_size)
+original_logits = np.random.normal(0, 10 / vocab_size, size=vocab_size)
 effective_logits = original_logits.copy()
 original_pmf = convert_logits_to_probabilities(original_logits)
 effective_pmf = original_pmf.copy()
@@ -35,9 +35,8 @@ def vocab_frequency_slider_change(
         frequency_penalty_slider,
         temperature_checkbox,
         temperature_slider,
-        top_k_or_top_p_radio,
-        top_k_slider,
-        top_p_slider
+        distribution_pruning_strategy_dropdown,
+        distribution_pruning_strategy_slider
 ):
     global vocab, vocab_frequencies, original_logits, effective_logits, original_pmf, effective_pmf
     vocab_frequencies[vocab.index(word)] = frequency
@@ -48,9 +47,8 @@ def vocab_frequency_slider_change(
         frequency_penalty_slider,
         temperature_checkbox,
         temperature_slider,
-        top_k_or_top_p_radio,
-        top_k_slider,
-        top_p_slider
+        distribution_pruning_strategy_dropdown,
+        distribution_pruning_strategy_slider
     )
 
 
@@ -64,14 +62,16 @@ def update_original_plots():
             y=original_logits,
             marker={
                 'color': original_logits,
-                'colorscale': 'Burg'
-            }
+                'colorscale': 'YlOrBr'
+            },
+            marker_line={'width': 0.25, 'color': '#666666'}
         )
     )
     original_logits_fig.update_layout(
         title_text='Original Logits Distribution',
         title_x=0.5,
-        yaxis={'title': {'text': 'Logits'}}
+        yaxis={'title': {'text': 'Logits'}},
+        plot_bgcolor='#DBDBDB'
     )
 
     # Building original PMF figure
@@ -81,14 +81,16 @@ def update_original_plots():
             y=original_pmf,
             marker={
                 'color': original_pmf,
-                'colorscale': 'Burg'
-            }
+                'colorscale': 'YlOrBr'
+            },
+            marker_line={'width': 0.25, 'color': '#666666'}
         )
     )
     original_pmf_fig.update_layout(
         title_text='Original Probability Mass Function',
         title_x=0.5,
-        yaxis={'title': {'text': 'Probability'}}
+        yaxis={'title': {'text': 'Probability'}},
+        plot_bgcolor='#DBDBDB'
     )
 
     return original_logits_fig, original_pmf_fig
@@ -101,9 +103,8 @@ def update_effective_plots(
         frequency_penalty_slider,
         temperature_checkbox,
         temperature_slider,
-        top_k_or_top_p_radio,
-        top_k_slider,
-        top_p_slider
+        distribution_pruning_strategy_dropdown,
+        distribution_pruning_strategy_slider
 ):
     global vocab, vocab_frequencies, original_logits, effective_logits, original_pmf, effective_pmf
     effective_logits = original_logits.copy()
@@ -113,10 +114,11 @@ def update_effective_plots(
         effective_logits = apply_frequency_penalty(effective_logits, vocab_frequencies, frequency_penalty_slider)
     if temperature_checkbox:
         effective_logits = apply_temperature(effective_logits, temperature_slider)
-    if top_k_or_top_p_radio == 'Top K':
-        effective_logits = select_top_k(effective_logits, top_k_slider)
-    if top_k_or_top_p_radio == 'Top P (Nucleus)':
-        effective_logits = select_top_p(effective_logits, top_p_slider)
+
+    if distribution_pruning_strategy_dropdown == 'Top K':
+        effective_logits = select_top_k(effective_logits, distribution_pruning_strategy_slider)
+    elif distribution_pruning_strategy_dropdown == 'Top P':
+        effective_logits = select_top_p(effective_logits, distribution_pruning_strategy_slider)
     effective_pmf = convert_logits_to_probabilities(effective_logits)
 
     # Building effective logits figure
@@ -126,14 +128,16 @@ def update_effective_plots(
             y=effective_logits,
             marker={
                 'color': effective_logits,
-                'colorscale': 'Burg'
-            }
+                'colorscale': 'YlOrBr'
+            },
+            marker_line={'width': 0.25, 'color': '#666666'}
         )
     )
     effective_logits_fig.update_layout(
         title_text='Effective Logits Distribution',
         title_x=0.5,
-        yaxis={'title': {'text': 'Logits'}}
+        yaxis={'title': {'text': 'Logits'}},
+        plot_bgcolor='#DBDBDB'
     )
 
     # Building effective PMF figure
@@ -143,17 +147,38 @@ def update_effective_plots(
             y=effective_pmf,
             marker={
                 'color': effective_pmf,
-                'colorscale': 'Burg'
-            }
+                'colorscale': 'YlOrBr'
+            },
+            marker_line={'width': 0.25, 'color': '#666666'}
         )
     )
     effective_pmf_fig.update_layout(
         title_text='Effective Probability Mass Function',
         title_x=0.5,
-        yaxis={'title': {'text': 'Probability'}}
+        yaxis={'title': {'text': 'Probability'}},
+        plot_bgcolor='#DBDBDB'
     )
 
     return effective_logits_fig, effective_pmf_fig
+
+
+def distribution_pruning_strategy_dropdown_change(distribution_pruning_strategy_dropdown):
+    if distribution_pruning_strategy_dropdown == 'Top K':
+        updated_distribution_pruning_strategy_slider = gr.update(
+            minimum=1,
+            maximum=len(vocab),
+            step=1,
+            value=len(vocab)
+        )
+    elif distribution_pruning_strategy_dropdown == 'Top P':
+        updated_distribution_pruning_strategy_slider = gr.update(
+            minimum=0,
+            maximum=1,
+            step=0.1,
+            value=1
+        )
+
+    return updated_distribution_pruning_strategy_slider
 
 
 def get_word_button_click(greedy_or_random_sampling_radio):
@@ -170,7 +195,7 @@ def get_word_button_click(greedy_or_random_sampling_radio):
 
 
 gr.close_all()
-with gr.Blocks() as app:
+with gr.Blocks(fill_width=True) as app:
     gr.Markdown('# From Logits to Tokens')
 
     with gr.Row():
@@ -243,30 +268,21 @@ with gr.Blocks() as app:
                 )
 
             with gr.Column():
-                top_k_or_top_p_radio = gr.Radio(
-                    ['Top K', 'Top P (Nucleus)'],
-                    info='Select to enable',
+                distribution_pruning_strategy_dropdown = gr.Dropdown(
+                    choices=['Top K', 'Top P'],
+                    label='Distribution Pruning',
+                    info='Select a distribution pruning strategy',
                     value='Top K',
                     interactive=True,
-                    show_label=False
+                    show_label=True
                 )
-                top_k_slider = gr.Slider(
-                    label='Top K (top_k)',
+                distribution_pruning_strategy_slider = gr.Slider(
                     minimum=1,
                     maximum=len(vocab),
                     step=1,
                     value=len(vocab),
                     interactive=True,
-                    show_label=True
-                )
-                top_p_slider = gr.Slider(
-                    label='Top P (top_p)',
-                    minimum=0,
-                    maximum=1,
-                    step=0.01,
-                    value=1,
-                    interactive=True,
-                    show_label=True
+                    show_label=False
                 )
 
         with gr.Column(scale=20):
@@ -312,9 +328,8 @@ with gr.Blocks() as app:
             frequency_penalty_slider,
             temperature_checkbox,
             temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
+            distribution_pruning_strategy_dropdown,
+            distribution_pruning_strategy_slider
         ],
         outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
     )
@@ -324,7 +339,6 @@ with gr.Blocks() as app:
         inputs=[vocab_dropdown],
         outputs=[vocab_frequency_slider]
     )
-
     vocab_frequency_slider.change(
         fn=vocab_frequency_slider_change,
         inputs=[
@@ -336,9 +350,8 @@ with gr.Blocks() as app:
             frequency_penalty_slider,
             temperature_checkbox,
             temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
+            distribution_pruning_strategy_dropdown,
+            distribution_pruning_strategy_slider
         ],
         outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
     )
@@ -352,13 +365,12 @@ with gr.Blocks() as app:
             frequency_penalty_slider,
             temperature_checkbox,
             temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
+            distribution_pruning_strategy_dropdown,
+            distribution_pruning_strategy_slider
         ],
         outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
     )
-    repetition_penalty_slider.release(
+    repetition_penalty_slider.change(
         fn=update_effective_plots,
         inputs=[
             repetition_penalty_checkbox,
@@ -367,12 +379,12 @@ with gr.Blocks() as app:
             frequency_penalty_slider,
             temperature_checkbox,
             temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
+            distribution_pruning_strategy_dropdown,
+            distribution_pruning_strategy_slider
         ],
         outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
     )
+
     frequency_penalty_checkbox.change(
         fn=update_effective_plots,
         inputs=[
@@ -382,13 +394,12 @@ with gr.Blocks() as app:
             frequency_penalty_slider,
             temperature_checkbox,
             temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
+            distribution_pruning_strategy_dropdown,
+            distribution_pruning_strategy_slider
         ],
         outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
     )
-    frequency_penalty_slider.release(
+    frequency_penalty_slider.change(
         fn=update_effective_plots,
         inputs=[
             repetition_penalty_checkbox,
@@ -397,12 +408,12 @@ with gr.Blocks() as app:
             frequency_penalty_slider,
             temperature_checkbox,
             temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
+            distribution_pruning_strategy_dropdown,
+            distribution_pruning_strategy_slider
         ],
         outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
     )
+
     temperature_checkbox.change(
         fn=update_effective_plots,
         inputs=[
@@ -412,13 +423,12 @@ with gr.Blocks() as app:
             frequency_penalty_slider,
             temperature_checkbox,
             temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
+            distribution_pruning_strategy_dropdown,
+            distribution_pruning_strategy_slider
         ],
         outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
     )
-    temperature_slider.release(
+    temperature_slider.change(
         fn=update_effective_plots,
         inputs=[
             repetition_penalty_checkbox,
@@ -427,13 +437,18 @@ with gr.Blocks() as app:
             frequency_penalty_slider,
             temperature_checkbox,
             temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
+            distribution_pruning_strategy_dropdown,
+            distribution_pruning_strategy_slider
         ],
         outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
     )
-    top_k_or_top_p_radio.change(
+
+    distribution_pruning_strategy_dropdown.change(
+        fn=distribution_pruning_strategy_dropdown_change,
+        inputs=[distribution_pruning_strategy_dropdown],
+        outputs=[distribution_pruning_strategy_slider]
+    )
+    distribution_pruning_strategy_slider.change(
         fn=update_effective_plots,
         inputs=[
             repetition_penalty_checkbox,
@@ -442,39 +457,8 @@ with gr.Blocks() as app:
             frequency_penalty_slider,
             temperature_checkbox,
             temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
-        ],
-        outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
-    )
-    top_k_slider.release(
-        fn=update_effective_plots,
-        inputs=[
-            repetition_penalty_checkbox,
-            repetition_penalty_slider,
-            frequency_penalty_checkbox,
-            frequency_penalty_slider,
-            temperature_checkbox,
-            temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
-        ],
-        outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
-    )
-    top_p_slider.change(
-        fn=update_effective_plots,
-        inputs=[
-            repetition_penalty_checkbox,
-            repetition_penalty_slider,
-            frequency_penalty_checkbox,
-            frequency_penalty_slider,
-            temperature_checkbox,
-            temperature_slider,
-            top_k_or_top_p_radio,
-            top_k_slider,
-            top_p_slider
+            distribution_pruning_strategy_dropdown,
+            distribution_pruning_strategy_slider
         ],
         outputs=[effective_logits_bar_plot, effective_pmf_bar_plot]
     )
@@ -484,7 +468,6 @@ with gr.Blocks() as app:
         inputs=[greedy_or_random_sampling_radio],
         outputs=[selected_word_textbox]
     )
-
     get_word_button.click(
         fn=get_word_button_click,
         inputs=[greedy_or_random_sampling_radio],

@@ -322,10 +322,15 @@ def get_word_button_click(greedy_or_random_sampling_radio):
 gr.close_all()
 with (gr.Blocks(fill_width=True, css='footer {visibility: hidden}') as app):
     gr.Markdown('# From Logits to Tokens')
-    gr.Markdown(
-        'A simple app that walks-through & illustrates the process of converting raw logits from an LLM\'s decoder layer to the final token.\\\n' +
-        'For simplicity and ease of understanding, we\'ll assume tokens to be complete words with a vocab size of 50.'
-    )
+    with gr.Accordion(
+        label='Details',
+        open=False
+    ):
+        gr.Markdown(
+            'A simple app that illustrates the process of converting raw logits from an LLM\'s decoder layer to the final token.\\\n' +
+            'For simplicity and ease of understanding, we\'ll assume tokens to be complete words with a vocabulary size of 50.\\\n' +
+            'If you are interested in learning the following in detail, you can ready my blog post: https://medium.com/@adimodi96/from-logits-to-tokens-9a36feab9cab.'
+        )
 
     with gr.Row():
         with gr.Column(scale=1):
